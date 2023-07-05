@@ -1,0 +1,213 @@
+// Annabelle Haryanto
+// The Absurdle class represents the game of Absurdle, where players are required to try
+// to guess a secret word.
+
+import java.util.*;
+import java.io.*;
+
+public class Absurdle  {
+    public static final String GREEN = "🟩";
+    public static final String YELLOW = "🟨";
+    public static final String GRAY = "⬜";
+
+    // [[ ALL OF MAIN PROVIDED ]]
+    public static void main(String[] args) throws FileNotFoundException {
+        Scanner console = new Scanner(System.in);
+        System.out.println("Welcome to the game of Absurdle.");
+
+        System.out.print("What dictionary would you like to use? ");
+        String dictName = console.next();
+
+        System.out.print("What length word would you like to guess? ");
+        int wordLength = console.nextInt();
+
+        List<String> contents = loadFile(new Scanner(new File(dictName)));
+        Set<String> words = pruneDictionary(contents, wordLength);
+        List<String> guessedPatterns = new ArrayList<>();
+        while (!isFinished(guessedPatterns)) {
+            System.out.print("> ");
+            String guess = console.next();
+            String pattern = record(guess, words, wordLength);
+            guessedPatterns.add(pattern);
+            System.out.println(": " + pattern);
+            System.out.println();
+        }
+        System.out.println("Absurdle " + guessedPatterns.size() + "/∞");
+        System.out.println();
+        printPatterns(guessedPatterns);
+    }
+
+    // [[ PROVIDED ]]
+    // Prints out the given list of patterns.
+    // - List<String> patterns: list of patterns from the game
+    public static void printPatterns(List<String> patterns) {
+        for (String pattern : patterns) {
+            System.out.println(pattern);
+        }
+    }
+
+    // [[ PROVIDED ]]
+    // Returns true if the game is finished, meaning the user guessed the word. Returns
+    // false otherwise.
+    // - List<String> patterns: list of patterns from the game
+    public static boolean isFinished(List<String> patterns) {
+        if (patterns.isEmpty()) {
+            return false;
+        }
+        String lastPattern = patterns.get(patterns.size() - 1);
+        return !lastPattern.contains("⬜") && !lastPattern.contains("🟨");
+    }
+
+    // [[ PROVIDED ]]
+    // Loads the contents of a given file Scanner into a List<String> and returns it.
+    // - Scanner dictScan: contains file contents
+    public static List<String> loadFile(Scanner dictScan) {
+        List<String> contents = new ArrayList<>();
+        while (dictScan.hasNext()) {
+            contents.add(dictScan.next());
+        }
+        return contents;
+    }
+
+    // This method prunes the dictionary based on the word length specified by the user.
+    // Parameters:
+    // - contents: The list of strings representing the dictionary contents.
+    // - wordLength: The length of the words to be pruned from the dictionary.
+    // Returns:
+    // - Set<String> contents: A set of strings containing the pruned words from the dictionary.
+    // throws IllegalArgumentException is the wordLength is less than 1.
+    public static Set<String> pruneDictionary(List<String> contents, int wordLength) 
+                                            throws IllegalArgumentException {
+        if (wordLength < 1) {
+            throw new IllegalArgumentException();
+        }
+        // Use a HashSet to store unique words of the specified length
+        Set<String> prunedDictionary = new HashSet<>();
+        for (String word : contents){
+            if (word.length() == wordLength){
+                prunedDictionary.add(word);
+            }
+        }
+        return prunedDictionary;
+    }
+
+    // This method records the user's guess and updates the set of possible words
+    // based on the previous guesses.
+    // Parameters
+    // - guess: The user's guess words.
+    // - Set<String> words: The set of possible words based on previous guesses.
+    // - wordLength: The length of the target word.
+    // Returns
+    // - String: The pattern representing the matches between the guess and
+    //           the target word.
+    // throws IllegalArgumentException if the set of words is empty 
+    // or if the guess length does not have the correct length.
+    public static String record(String guess, Set<String> words, int wordLength) 
+                            throws IllegalArgumentException{
+        if (words.isEmpty() || guess.length() != wordLength) {
+            throw new IllegalArgumentException();
+        }
+        Map<String, Set<String>> patternMap = new TreeMap<>();
+        for (String word : words) {
+             String pattern = patternFor(word, guess);
+             if (!patternMap.containsKey(pattern)) {
+                patternMap.put(pattern, new HashSet<>());
+             }
+             patternMap.get(pattern).add(word);
+        }
+        // Find the pattern associated with the largest set of words.
+        String maxPattern = getMaxPattern(patternMap);
+        // Update the set of words to contain only the words associated with the
+        // maxPattern.
+        Set<String> wordsToAdd = patternMap.get(maxPattern);
+        words.clear();
+        words.addAll(wordsToAdd);
+        return maxPattern;
+    }
+
+    // This method generates the pattern for a given guess word and target word.
+    // Parameters
+    // - word: The target word to match.
+    // - guess: The guess word.
+    // Returns
+    // - String: The pattern representing the matches between the guess and target word.
+    public static String patternFor(String word, String guess) {
+        // Create a list of the characters in the guess word.
+        List<String> guessList = new ArrayList<>();
+        for (int i = 0; i < guess.length(); i++) {
+            // Get the letter at the current index of the guess word.
+            String letter = guess.substring(i, i + 1);
+            // Add the letter to the list of characters in the guess word.
+            guessList.add(letter);
+        }
+        // Create a new HashMap to store the character count
+        Map<String, Integer> character = new HashMap<>();
+        for (int i = 0; i < word.length(); i++) {
+            String letter = word.charAt(i) + "";
+            if (!character.containsKey(letter)) {
+                character.put(letter, 1);
+            } else {
+                character.put(letter, character.get(letter) + 1);
+            }
+        }
+        // Create a new list to hold the pattern
+        List<String> pattern = new ArrayList<>();
+        // Mark all exact matches
+        for (int i = 0; i < word.length(); i++) {
+            // Get the letter at the current index for the guess and word
+            String guessLetter = guess.substring(i, i + 1);
+            String wordLetter = word.substring(i, i + 1);
+            // Check if the letter is the exact match
+            if (guessLetter.equals(wordLetter)) {
+                // Update the guessList and pattern with the green square
+                guessList.set(i, GREEN);
+                pattern.add(GREEN);
+                // Update character map to show that the letter has been used
+                character.put(guessLetter, character.get(guessLetter) - 1);
+            }
+        }
+        // Mark all approximate matches
+        for (int i = 0; i < guess.length(); i++) {
+            String guessLetter = guessList.get(i);
+            if (character.containsKey(guessLetter) && character.get(guessLetter) > 0) {
+                guessList.set(i, YELLOW);
+                character.put(guessLetter, character.get(guessLetter) - 1);
+            }
+        }
+        // Mark all unused characters as gray
+        for (int i = 0; i < word.length(); i++) {
+            String guessLetter = guessList.get(i);
+            String wordLetter = word.substring(i, i + 1);
+            if (!guessLetter.equals(GREEN) && !guessLetter.equals(YELLOW)) {
+                guessList.set(i, GRAY);
+            }
+        }
+        // Concentate the elements of pattern into a String to be returned.
+        String result = "";
+        for (String letter : guessList) {
+            result += letter;
+        }
+        return result;
+    }
+
+    // This helper method helps to get the pattern associated with the
+    // largest set of words.
+    // Parameters:
+    // - patternMap: A map where the keys are patterns and the values
+    //               are a set of words that match each pattern.
+    // Returns:
+    // - String: The pattern that is associated with the largest set
+    //           of words in the patternMap.
+    public static String getMaxPattern(Map<String, Set<String>> patternMap) {
+        int maxNum = 0;
+        String maxPattern = "";
+        for (String pattern : patternMap.keySet()) {
+            int numWords = patternMap.get(pattern).size();
+            if (numWords > maxNum) {
+                maxNum = numWords;
+                maxPattern = pattern;
+            }
+        }
+        return maxPattern;
+    }
+}
